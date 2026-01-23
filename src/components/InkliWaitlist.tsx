@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function InkliWaitlist() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('idle'); // idle, loading, success, error
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const taglineRef = useRef<HTMLParagraphElement>(null);
+  const [formWidth, setFormWidth] = useState<number | undefined>(undefined);
+  const [isContentReady, setIsContentReady] = useState(false);
 
   // Auto-fade messages after 3 seconds
   useEffect(() => {
@@ -16,6 +19,39 @@ export default function InkliWaitlist() {
       return () => clearTimeout(timer);
     }
   }, [status]);
+
+  // Match form width to tagline width and prepare content for fade-in
+  useEffect(() => {
+    const updateFormWidth = () => {
+      if (taglineRef.current) {
+        const width = taglineRef.current.offsetWidth;
+        if (width > 0) {
+          setFormWidth(width);
+          // Once width is set, mark content as ready after a brief delay
+          setTimeout(() => setIsContentReady(true), 50);
+        }
+      }
+    };
+
+    // Wait for fonts to load
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        updateFormWidth();
+        // Double-check after a brief delay
+        setTimeout(updateFormWidth, 100);
+      });
+    }
+
+    // Also measure immediately and after render
+    updateFormWidth();
+    requestAnimationFrame(() => {
+      updateFormWidth();
+      setTimeout(updateFormWidth, 100);
+    });
+
+    window.addEventListener('resize', updateFormWidth);
+    return () => window.removeEventListener('resize', updateFormWidth);
+  }, []);
 
   const handleSubmit = async () => {
     // Basic email validation
@@ -81,7 +117,9 @@ export default function InkliWaitlist() {
          style={{ backgroundColor: '#F5EDE1' }}>
       <div className="w-full max-w-md sm:max-w-lg">
         {/* Logo */}
-        <div className="flex justify-center mb-4 sm:mb-6">
+        <div 
+          className="flex justify-center mb-4 sm:mb-6 transition-opacity duration-500"
+          style={{ opacity: isContentReady ? 1 : 0 }}>
           <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-3xl flex items-center justify-center"
                style={{ backgroundColor: '#4EACE3' }}>
             <span className="text-white text-2xl sm:text-3xl md:text-4xl font-bold italic"
@@ -92,7 +130,9 @@ export default function InkliWaitlist() {
         </div>
 
         {/* Tagline */}
-        <div className="text-center mb-2">
+        <div 
+          className="text-center mb-2 transition-opacity duration-500"
+          style={{ opacity: isContentReady ? 1 : 0 }}>
           <h1 className="text-2xl sm:text-3xl md:text-3xl italic mb-2"
               style={{ 
                 color: '#5A4338',
@@ -102,14 +142,19 @@ export default function InkliWaitlist() {
             <br />
             you rank it!
           </h1>
-          <p className="text-xs sm:text-sm mt-3 sm:mt-4 mb-6 sm:mb-8"
+          <p ref={taglineRef} className="text-sm sm:text-base mt-3 sm:mt-4 mb-3 sm:mb-4 inline-block"
              style={{ color: '#5A4338' }}>
             your new favorite social reading app &lt;3
           </p>
         </div>
 
         {/* Input Form */}
-        <div className="space-y-3">
+        <div 
+          className="space-y-3 mx-auto transition-opacity duration-500" 
+          style={{ 
+            width: formWidth ? `${formWidth}px` : 'auto',
+            opacity: isContentReady && formWidth ? 1 : 0
+          }}>
           <input
             type="email"
             placeholder="email"
